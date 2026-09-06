@@ -121,3 +121,17 @@ export async function atualizarPerfil(dados: {
   if (!resposta.ok) throw new Error(payload.error || "Não foi possível guardar o perfil");
   return payload;
 }
+
+export async function enviarFotoPerfil(file: File): Promise<string> {
+  const token = obterToken();
+  const dados = new FormData();
+  dados.append("file", file);
+  const resposta = await fetch(`${API_URL}/profile/photo`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: dados
+  });
+  const payload = await lerResposta<{ fotoUrl?: string }>(resposta);
+  if (!resposta.ok || !payload.fotoUrl) throw new Error(payload.error || "Não foi possível guardar a foto");
+  return payload.fotoUrl;
+}

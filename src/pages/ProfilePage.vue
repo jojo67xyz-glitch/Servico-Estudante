@@ -12,10 +12,29 @@ const dialogAberto = ref(false);
 const biografia = ref("");
 const habilidadesTexto = ref("");
 const interessesTexto = ref("");
+const inputFoto = ref<HTMLInputElement | null>(null);
 
 function abrirEditorBiografia() {
   biografia.value = authStore.usuario?.bio || "";
   dialogAberto.value = true;
+}
+
+function escolherFoto() {
+  inputFoto.value?.click();
+}
+
+async function alterarFoto(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    await authStore.guardarFoto(file);
+    $q.notify({ type: "positive", message: "Foto de perfil atualizada" });
+  } catch (erro) {
+    $q.notify({ type: "negative", message: erro instanceof Error ? erro.message : "Erro ao guardar foto" });
+  } finally {
+    input.value = "";
+  }
 }
 
 function abrirEditorCompetencias() {
@@ -59,9 +78,11 @@ function sair() {
 <template>
   <q-page padding>
     <div class="text-center q-mb-lg">
-      <q-avatar size="100px">
+      <input ref="inputFoto" type="file" accept="image/*" class="hidden-file-input" @change="alterarFoto" />
+      <q-avatar size="100px" class="cursor-pointer" @click="escolherFoto">
         <img :src="authStore.usuario?.fotoPerfil" />
       </q-avatar>
+      <div><q-btn flat no-caps color="primary" icon="photo_camera" label="Alterar foto" @click="escolherFoto" /></div>
       <div class="text-h5 q-mt-sm">{{ authStore.usuario?.nome }}</div>
       <div v-if="authStore.usuario?.bio" class="text-caption text-grey-7">
         {{ authStore.usuario.bio }}

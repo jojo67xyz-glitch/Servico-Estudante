@@ -7,6 +7,7 @@ import {
   fazerLogout,
   criarConta,
   atualizarPerfil
+  , enviarFotoPerfil
 } from "@/services/authService";
 
 export const useAuthStore = defineStore("auth", () => {
@@ -49,5 +50,16 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  return { usuario, carregando, estaLogado, login, registar, guardarPerfil, logout };
+  async function guardarFoto(file: File) {
+    if (!usuario.value) return;
+    carregando.value = true;
+    try {
+      usuario.value = { ...usuario.value, fotoPerfil: await enviarFotoPerfil(file) };
+      localStorage.setItem("skillswap:sessao", JSON.stringify(usuario.value));
+    } finally {
+      carregando.value = false;
+    }
+  }
+
+  return { usuario, carregando, estaLogado, login, registar, guardarPerfil, guardarFoto, logout };
 });

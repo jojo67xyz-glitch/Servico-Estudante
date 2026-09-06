@@ -188,6 +188,15 @@ app.post("/api/uploads", autenticar, upload.single("file"), (req, res) => {
   });
 });
 
+app.post("/api/profile/photo", autenticar, upload.single("file"), (req, res) => {
+  if (!req.file || !req.file.mimetype.startsWith("image/")) {
+    return res.status(400).json({ error: "Escolha uma imagem válida" });
+  }
+  const fotoUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+  database.prepare("UPDATE users SET foto_url = ? WHERE id = ?").run(fotoUrl, req.userId);
+  res.status(201).json({ fotoUrl });
+});
+
 app.listen(port, () => {
   console.log(`API SkillSwap disponível em http://localhost:${port}`);
 });
