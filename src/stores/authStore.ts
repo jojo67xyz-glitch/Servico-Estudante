@@ -6,6 +6,7 @@ import {
   obterSessaoAtual,
   fazerLogout,
   criarConta
+  , atualizarBiografia
 } from "@/services/authService";
 
 export const useAuthStore = defineStore("auth", () => {
@@ -36,5 +37,16 @@ export const useAuthStore = defineStore("auth", () => {
     usuario.value = null;
   }
 
-  return { usuario, carregando, estaLogado, login, registar, logout };
+  async function guardarBiografia(bio: string) {
+    if (!usuario.value) return;
+    carregando.value = true;
+    try {
+      usuario.value = { ...usuario.value, bio: await atualizarBiografia(bio) };
+      localStorage.setItem("skillswap:sessao", JSON.stringify(usuario.value));
+    } finally {
+      carregando.value = false;
+    }
+  }
+
+  return { usuario, carregando, estaLogado, login, registar, guardarBiografia, logout };
 });

@@ -70,7 +70,7 @@ app.post("/api/auth/register", async (req, res) => {
       "INSERT INTO users (email, password_hash, nome) VALUES (?, ?, ?)"
     ).run(email, passwordHash, nome);
     const userId = result.lastInsertRowid;
-    res.status(201).json({ token: criarToken(userId), user: { id: userId, email, nome } });
+    res.status(201).json({ token: criarToken(userId), user: { id: userId, email, nome, bio: "" } });
   } catch (error) {
     const status = error.code === "SQLITE_CONSTRAINT_UNIQUE" ? 409 : 500;
     res.status(status).json({ error: status === 409 ? "Este email já está registado" : "Erro ao criar conta" });
@@ -83,12 +83,12 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const user = database.prepare(
-      "SELECT id, email, password_hash, nome FROM users WHERE email = ?"
+      "SELECT id, email, password_hash, nome, bio FROM users WHERE email = ?"
     ).get(email);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
-    res.json({ token: criarToken(user.id), user: { id: user.id, email: user.email, nome: user.nome } });
+    res.json({ token: criarToken(user.id), user: { id: user.id, email: user.email, nome: user.nome, bio: user.bio || "" } });
   } catch {
     res.status(500).json({ error: "Erro ao iniciar sessão" });
   }
@@ -100,6 +100,13 @@ app.get("/api/profile", autenticar, (req, res) => {
   ).get(req.userId);
   if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
   res.json(user);
+});
+
+app.put("/api/profile", autenticar, (req, res) => {
+  const bio = typeof req.body.bio === "string" ? req.body.bio.trim().slice(0, 500) : null;
+  if (bio === null) return res.status(400).json({ error: "A biografia é inválida" });
+  database.prepare("UPDATE users SET bio = ? WHERE id = ?").run(bio, req.userId);
+  res.json({ bio });
 });
 
 app.get("/api/messages/:matchId", autenticar, (req, res) => {

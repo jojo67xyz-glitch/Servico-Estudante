@@ -1,9 +1,29 @@
 <script setup lang="ts">
+import { ref } from "vue";
+import { useQuasar } from "quasar";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/authStore";
 
 const authStore = useAuthStore();
 const router = useRouter();
+const $q = useQuasar();
+const dialogAberto = ref(false);
+const biografia = ref("");
+
+function abrirEditorBiografia() {
+  biografia.value = authStore.usuario?.bio || "";
+  dialogAberto.value = true;
+}
+
+async function guardarBiografia() {
+  try {
+    await authStore.guardarBiografia(biografia.value);
+    dialogAberto.value = false;
+    $q.notify({ type: "positive", message: "Biografia guardada" });
+  } catch (erro) {
+    $q.notify({ type: "negative", message: erro instanceof Error ? erro.message : "Erro ao guardar" });
+  }
+}
 
 function sair() {
   authStore.logout();
@@ -18,7 +38,18 @@ function sair() {
         <img :src="authStore.usuario?.fotoPerfil" />
       </q-avatar>
       <div class="text-h5 q-mt-sm">{{ authStore.usuario?.nome }}</div>
-      <div class="text-caption text-grey-7">{{ authStore.usuario?.bio }}</div>
+      <div v-if="authStore.usuario?.bio" class="text-caption text-grey-7">
+        {{ authStore.usuario.bio }}
+      </div>
+      <q-btn
+        flat
+        no-caps
+        color="primary"
+        :label="authStore.usuario?.bio ? 'Editar biografia' : 'Adicionar biografia'"
+        icon="edit"
+        class="q-mt-sm"
+        @click="abrirEditorBiografia"
+      />
     </div>
 
     <q-list bordered separator>
@@ -47,5 +78,26 @@ function sair() {
       class="full-width q-mt-lg"
       @click="sair"
     />
+
+    <q-dialog v-model="dialogAberto">
+      <q-card style="width: min(92vw, 460px)">
+        <q-card-section class="text-h6">A sua biografia</q-card-section>
+        <q-card-section>
+          <q-input
+            v-model="biografia"
+            outlined
+            autofocus
+            type="textarea"
+            maxlength="500"
+            counter
+            label="Fale um pouco sobre si"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancelar" v-close-popup />
+          <q-btn color="primary" label="Guardar" :loading="authStore.carregando" @click="guardarBiografia" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>

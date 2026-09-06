@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface RespostaAuth {
   token: string;
-  user: { id: number; email: string; nome: string };
+  user: { id: number; email: string; nome: string; bio?: string };
 }
 
 function converterUtilizador(user: RespostaAuth["user"]): User {
@@ -14,7 +14,7 @@ function converterUtilizador(user: RespostaAuth["user"]): User {
     id: String(user.id),
     nome: user.nome,
     fotoPerfil: "https://cdn.quasar.dev/img/avatar.png",
-    bio: "Ainda não adicionou uma biografia.",
+    bio: user.bio || "",
     habilidades: [],
     interesses: [],
     avaliacao: 0
@@ -64,4 +64,19 @@ export function fazerLogout(): void {
 
 export function obterToken(): string | null {
   return localStorage.getItem(CHAVE_TOKEN);
+}
+
+export async function atualizarBiografia(bio: string): Promise<string> {
+  const token = obterToken();
+  const resposta = await fetch(`${API_URL}/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ bio })
+  });
+  const payload = (await resposta.json()) as { bio?: string; error?: string };
+  if (!resposta.ok) throw new Error(payload.error || "Não foi possível guardar a biografia");
+  return payload.bio || "";
 }
