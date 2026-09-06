@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useQuasar } from "quasar";
 import { useChat } from "@/composables/useChat";
 import ChatBubble from "@/components/ChatBubble.vue";
 
 const $q = useQuasar();
-const { novoTexto, mensagens, enviarMensagem, handleEnter, carregarHistorico } =
-  useChat();
+const {
+  novoTexto,
+  mensagens,
+  enviarMensagem,
+  enviarAnexo,
+  handleEnter,
+  carregarHistorico
+} = useChat();
+const seletorFicheiro = ref<HTMLInputElement | null>(null);
 
 onMounted(() => {
   void carregarHistorico();
@@ -18,6 +25,17 @@ function abrirVideoChamada() {
 
 function abrirChamada() {
   $q.notify({ type: "info", message: "Ligação iniciada" });
+}
+
+function selecionarFicheiro() {
+  seletorFicheiro.value?.click();
+}
+
+async function tratarFicheiro(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (file) await enviarAnexo(file);
+  input.value = "";
 }
 </script>
 
@@ -40,6 +58,22 @@ function abrirChamada() {
     </div>
 
     <q-toolbar class="bg-white shadow-up-2 chat-input-bar">
+      <input
+        ref="seletorFicheiro"
+        type="file"
+        accept="image/*,video/*,.pdf,.doc,.docx,.txt,.zip"
+        class="hidden-file-input"
+        @change="tratarFicheiro"
+      />
+      <q-btn
+        flat
+        round
+        dense
+        icon="attach_file"
+        color="primary"
+        aria-label="Enviar ficheiro, foto ou vídeo"
+        @click="selecionarFicheiro"
+      />
       <q-input
         v-model="novoTexto"
         outlined
@@ -65,6 +99,10 @@ function abrirChamada() {
 .chat-input-bar {
   padding: 10px 12px 14px;
   gap: 10px;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .chat-input {

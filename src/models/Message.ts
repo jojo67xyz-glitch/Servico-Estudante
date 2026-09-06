@@ -13,6 +13,8 @@ export interface Message {
   remetenteId: string;
   tipo: TipoMensagem;
   conteudo: string;
+  nomeFicheiro?: string;
+  mimeType?: string;
   duracao?: number;
   timestamp: Date;
   lida: boolean;

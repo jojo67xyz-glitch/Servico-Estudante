@@ -46,6 +46,33 @@ export function useChat() {
     }
   }
 
+  async function enviarAnexo(file: File): Promise<void> {
+    if (!matchId.value || enviando.value) return;
+
+    enviando.value = true;
+    try {
+      const tipo: NovaMensagemInput["tipo"] = file.type.startsWith("image/")
+        ? "imagem"
+        : file.type.startsWith("video/")
+          ? "video"
+          : "ficheiro";
+      const dados: NovaMensagemInput = {
+        matchId: matchId.value,
+        remetenteId: authStore.usuario?.id || "anonimo",
+        tipo,
+        conteudo: URL.createObjectURL(file),
+        nomeFicheiro: file.name,
+        mimeType: file.type
+      };
+
+      await chatStore.adicionarMensagem(matchId.value, dados);
+    } catch (erro) {
+      console.error("Falha ao enviar anexo:", erro);
+    } finally {
+      enviando.value = false;
+    }
+  }
+
   async function carregarHistorico(): Promise<void> {
     if (matchId.value && !estaCarregando.value) {
       await chatStore.carregarHistorico(matchId.value);
@@ -79,6 +106,7 @@ export function useChat() {
     estaCarregando,
     matchId,
     enviarMensagem,
+    enviarAnexo,
     carregarHistorico,
     handleEnter
   };
