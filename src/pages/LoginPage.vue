@@ -7,12 +7,31 @@ import { useQuasar } from "quasar";
 const $q = useQuasar();
 const router = useRouter();
 const authStore = useAuthStore();
-const email = ref("estudante@skillswap.com");
+const modoRegisto = ref(false);
+const nome = ref("");
+const email = ref("");
+const password = ref("");
 
 async function entrar() {
-  await authStore.login(email.value);
-  $q.notify({ type: "positive", message: "Bem-vindo ao SkillSwap!" });
-  await router.push("/descobrir");
+  try {
+    if (modoRegisto.value) {
+      await authStore.registar(nome.value, email.value, password.value);
+      $q.notify({ type: "positive", message: "Conta criada com sucesso!" });
+    } else {
+      await authStore.login(email.value, password.value);
+      $q.notify({ type: "positive", message: "Bem-vindo ao SkillSwap!" });
+    }
+    await router.push("/descobrir");
+  } catch (erro) {
+    $q.notify({
+      type: "negative",
+      message: erro instanceof Error ? erro.message : "Não foi possível concluir a operação"
+    });
+  }
+}
+
+function alternarModo() {
+  modoRegisto.value = !modoRegisto.value;
 }
 </script>
 
@@ -24,13 +43,24 @@ async function entrar() {
     <q-card flat class="login-card q-pa-xl">
       <div class="text-center q-mb-xl">
         <div class="brand-badge">SkillSwap</div>
-        <div class="text-h4 text-weight-bold text-dark q-mt-md">Conecte talento.</div>
+        <div class="text-h4 text-weight-bold text-dark q-mt-md">
+          {{ modoRegisto ? "Crie a sua conta." : "Conecte talento." }}
+        </div>
         <div class="text-subtitle2 text-grey-7 q-mt-sm">
           Troca de serviços entre estudantes
         </div>
       </div>
 
       <q-form @submit="() => { void entrar() }" class="q-gutter-md">
+        <q-input
+          v-if="modoRegisto"
+          v-model="nome"
+          outlined
+          label="Nome completo"
+          lazy-rules
+          :rules="[val => !!val || 'Campo obrigatório']"
+          class="login-input"
+        />
         <q-input
           v-model="email"
           outlined
@@ -40,17 +70,28 @@ async function entrar() {
           :rules="[val => !!val || 'Campo obrigatório']"
           class="login-input"
         />
+        <q-input
+          v-model="password"
+          outlined
+          label="Password"
+          type="password"
+          lazy-rules
+          :rules="[val => val.length >= 6 || 'Use pelo menos 6 caracteres']"
+          class="login-input"
+        />
 
         <q-btn
           type="submit"
-          label="Entrar"
+          :label="modoRegisto ? 'Criar conta' : 'Entrar'"
           class="login-button full-width"
           :loading="authStore.carregando"
         />
       </q-form>
 
       <div class="login-footer q-mt-lg text-center text-grey-7">
-        Acesso rápido • sem cadastro
+        <button type="button" class="mode-link" @click="alternarModo">
+          {{ modoRegisto ? "Já tenho uma conta" : "Ainda não tenho conta" }}
+        </button>
       </div>
     </q-card>
   </q-page>
@@ -130,5 +171,16 @@ async function entrar() {
 
 .login-footer {
   font-size: 0.8rem;
+}
+
+.mode-link {
+  border: 0;
+  background: transparent;
+  color: #3730a3;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 4px;
 }
 </style>
