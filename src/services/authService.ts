@@ -22,11 +22,16 @@ function converterUtilizador(user: RespostaAuth["user"]): User {
 }
 
 async function pedirAuth(endpoint: string, dados: Record<string, string>): Promise<User> {
-  const resposta = await fetch(`${API_URL}/auth/${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(dados)
-  });
+  let resposta: Response;
+  try {
+    resposta = await fetch(`${API_URL}/auth/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados)
+    });
+  } catch {
+    throw new Error("Não foi possível ligar ao servidor. Execute npm run server.");
+  }
   const payload = (await resposta.json()) as RespostaAuth & { error?: string };
   if (!resposta.ok) throw new Error(payload.error || "Não foi possível autenticar");
   localStorage.setItem(CHAVE_TOKEN, payload.token);
