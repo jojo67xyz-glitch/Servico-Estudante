@@ -25,7 +25,7 @@ export default function () {
       port: 9000,
       open: false,
       proxy: {
-        '/api': 'http://localhost:3000'
+        '/api': 'http://127.0.0.1:3000'
       }
     },
 
