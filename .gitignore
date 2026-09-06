@@ -5,6 +5,9 @@ node_modules
 # .env files
 .env*
 !.env.example
+database/*.sqlite
+server/uploads/*
+!server/uploads/.gitkeep
 
 # Quasar core related directories
 .quasar

@@ -4,26 +4,24 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import mysql from "mysql2/promise";
+import Database from "better-sqlite3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const jwtSecret = process.env.JWT_SECRET || "development-secret-change-me";
-const uploadsDirectory = path.join(path.dirname(fileURLToPath(import.meta.url)), "uploads");
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDirectory = path.join(serverDirectory, "uploads");
+const databasePath = process.env.DB_PATH || path.join(serverDirectory, "..", "database", "servico-estudante.sqlite");
 
 await mkdir(uploadsDirectory, { recursive: true });
+await mkdir(path.dirname(databasePath), { recursive: true });
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "servico_estudante",
-  connectionLimit: 10
-});
+const database = new Database(databasePath);
+database.pragma("foreign_keys = ON");
+database.exec(await readFile(path.join(serverDirectory, "..", "database", "schema.sql"), "utf8"));
 
 const upload = multer({
   dest: uploadsDirectory,
@@ -51,10 +49,10 @@ async function autenticar(req, res, next) {
   }
 }
 
-app.get("/api/health", async (_req, res) => {
+app.get("/api/health", (_req, res) => {
   try {
-    await pool.query("SELECT 1");
-    res.json({ ok: true, database: "connected" });
+    database.prepare("SELECT 1").get();
+    res.json({ ok: true, database: "connected", engine: "sqlite" });
   } catch (error) {
     res.status(503).json({ ok: false, database: "unavailable", error: error.message });
   }
@@ -68,14 +66,13 @@ app.post("/api/auth/register", async (req, res) => {
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const [result] = await pool.execute(
-      "INSERT INTO users (email, password_hash, nome) VALUES (?, ?, ?)",
-      [email, passwordHash, nome]
-    );
-    const userId = result.insertId;
+    const result = database.prepare(
+      "INSERT INTO users (email, password_hash, nome) VALUES (?, ?, ?)"
+    ).run(email, passwordHash, nome);
+    const userId = result.lastInsertRowid;
     res.status(201).json({ token: criarToken(userId), user: { id: userId, email, nome } });
   } catch (error) {
-    const status = error.code === "ER_DUP_ENTRY" ? 409 : 500;
+    const status = error.code === "SQLITE_CONSTRAINT_UNIQUE" ? 409 : 500;
     res.status(status).json({ error: status === 409 ? "Este email já está registado" : "Erro ao criar conta" });
   }
 });
@@ -85,8 +82,9 @@ app.post("/api/auth/login", async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: "Email e password são obrigatórios" });
 
   try {
-    const [rows] = await pool.execute("SELECT id, email, password_hash, nome FROM users WHERE email = ?", [email]);
-    const user = rows[0];
+    const user = database.prepare(
+      "SELECT id, email, password_hash, nome FROM users WHERE email = ?"
+    ).get(email);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
@@ -96,28 +94,28 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-app.get("/api/profile", autenticar, async (req, res) => {
-  const [rows] = await pool.execute("SELECT id, email, nome, bio, foto_url FROM users WHERE id = ?", [req.userId]);
-  if (!rows[0]) return res.status(404).json({ error: "Utilizador não encontrado" });
-  res.json(rows[0]);
+app.get("/api/profile", autenticar, (req, res) => {
+  const user = database.prepare(
+    "SELECT id, email, nome, bio, foto_url FROM users WHERE id = ?"
+  ).get(req.userId);
+  if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
+  res.json(user);
 });
 
-app.get("/api/messages/:matchId", autenticar, async (req, res) => {
-  const [rows] = await pool.execute(
+app.get("/api/messages/:matchId", autenticar, (req, res) => {
+  const rows = database.prepare(
     "SELECT id, match_id, sender_id, type, content, file_name, mime_type, created_at FROM messages WHERE match_id = ? ORDER BY created_at ASC",
-    [req.params.matchId]
-  );
+  ).all(req.params.matchId);
   res.json(rows);
 });
 
-app.post("/api/messages/:matchId", autenticar, async (req, res) => {
+app.post("/api/messages/:matchId", autenticar, (req, res) => {
   const { type = "texto", content, fileName, mimeType } = req.body;
   if (!content) return res.status(400).json({ error: "O conteúdo é obrigatório" });
-  const [result] = await pool.execute(
-    "INSERT INTO messages (match_id, sender_id, type, content, file_name, mime_type) VALUES (?, ?, ?, ?, ?, ?)",
-    [req.params.matchId, req.userId, type, content, fileName || null, mimeType || null]
-  );
-  res.status(201).json({ id: result.insertId, matchId: req.params.matchId, senderId: req.userId, type, content, fileName, mimeType });
+  const result = database.prepare(
+    "INSERT INTO messages (match_id, sender_id, type, content, file_name, mime_type) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(req.params.matchId, req.userId, type, content, fileName || null, mimeType || null);
+  res.status(201).json({ id: result.lastInsertRowid, matchId: req.params.matchId, senderId: req.userId, type, content, fileName, mimeType });
 });
 
 app.post("/api/uploads", autenticar, upload.single("file"), (req, res) => {
