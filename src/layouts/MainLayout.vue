@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
 const menuAberto = ref(false);
+
+function selecionarPerfil() {
+  menuAberto.value = false;
+}
 </script>
 
 <template>
@@ -22,7 +26,7 @@ const menuAberto = ref(false);
           <q-route-tab to="/descobrir" label="Descobrir" icon="explore" />
           <q-route-tab to="/chats" label="Chats" icon="chat_bubble_outline" />
           <q-route-tab to="/agenda" label="Agenda" icon="event" />
-          <q-route-tab to="/perfil" label="Perfil" icon="person" />
+          <q-route-tab to="/perfil" exact label="Perfil" icon="person" />
         </q-tabs>
       </q-toolbar>
     </q-header>
@@ -43,7 +47,7 @@ const menuAberto = ref(false);
           <q-item-section avatar><q-icon name="event" /></q-item-section>
           <q-item-section>Agenda</q-item-section>
         </q-item>
-        <q-item clickable v-ripple to="/perfil">
+        <q-item clickable v-ripple to="/perfil" exact @click="selecionarPerfil">
           <q-item-section avatar><q-icon name="person" /></q-item-section>
           <q-item-section>Meu Perfil</q-item-section>
         </q-item>
@@ -59,7 +63,7 @@ const menuAberto = ref(false);
         <q-route-tab to="/descobrir" icon="explore" label="Descobrir" />
         <q-route-tab to="/chats" icon="chat_bubble_outline" label="Chats" />
         <q-route-tab to="/agenda" icon="event" label="Agenda" />
-        <q-route-tab to="/perfil" icon="person" label="Perfil" />
+        <q-route-tab to="/perfil" exact icon="person" label="Perfil" />
       </q-tabs>
     </q-footer>
   </q-layout>
