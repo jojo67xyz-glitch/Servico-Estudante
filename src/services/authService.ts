@@ -2,7 +2,7 @@ import type { User } from "@/models/User";
 
 const CHAVE_SESSAO = "skillswap:sessao";
 const CHAVE_TOKEN = "skillswap:token";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface RespostaAuth {
   token: string;

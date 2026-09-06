@@ -23,7 +23,10 @@ export default function () {
     devServer: {
       host: '0.0.0.0',
       port: 9000,
-      open: false
+      open: false,
+      proxy: {
+        '/api': 'http://localhost:3000'
+      }
     },
 
     framework: {
