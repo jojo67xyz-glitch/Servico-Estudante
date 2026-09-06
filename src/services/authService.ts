@@ -64,6 +64,27 @@ export function criarConta(nome: string, email: string, password: string): Promi
   return pedirAuth("register", { nome, email, password });
 }
 
+export async function pedirRecuperacao(email: string): Promise<string | null> {
+  const resposta = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+  const payload = await lerResposta<{ resetToken?: string; message?: string }>(resposta);
+  if (!resposta.ok) throw new Error(payload.error || "Não foi possível pedir a recuperação");
+  return payload.resetToken || null;
+}
+
+export async function redefinirPassword(token: string, password: string): Promise<void> {
+  const resposta = await fetch(`${API_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password })
+  });
+  const payload = await lerResposta<{ message?: string }>(resposta);
+  if (!resposta.ok) throw new Error(payload.error || "Não foi possível alterar a password");
+}
+
 export function obterSessaoAtual(): User | null {
   try {
     const dados = localStorage.getItem(CHAVE_SESSAO);

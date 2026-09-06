@@ -8,6 +8,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile } from "node:fs/promises";
+import { createHash, randomBytes } from "node:crypto";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -110,6 +111,35 @@ app.post("/api/auth/login", async (req, res) => {
   } catch {
     res.status(500).json({ error: "Erro ao iniciar sessão" });
   }
+});
+
+app.post("/api/auth/forgot-password", (req, res) => {
+  const email = typeof req.body.email === "string" ? req.body.email.trim() : "";
+  const user = database.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  if (!user) return res.json({ message: "Se o email existir, será gerado um código de recuperação." });
+
+  const token = randomBytes(24).toString("hex");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  database.prepare("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0").run(user.id);
+  database.prepare("INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)").run(user.id, tokenHash, expiresAt);
+  res.json({ message: "Código de recuperação gerado.", resetToken: token });
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { token, password } = req.body;
+  if (typeof token !== "string" || typeof password !== "string" || password.length < 6) {
+    return res.status(400).json({ error: "Código e password com pelo menos 6 caracteres são obrigatórios" });
+  }
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const reset = database.prepare(
+    "SELECT id, user_id FROM password_resets WHERE token_hash = ? AND used = 0 AND expires_at > ?"
+  ).get(tokenHash, new Date().toISOString());
+  if (!reset) return res.status(400).json({ error: "Código inválido ou expirado" });
+  const passwordHash = await bcrypt.hash(password, 12);
+  database.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, reset.user_id);
+  database.prepare("UPDATE password_resets SET used = 1 WHERE id = ?").run(reset.id);
+  res.json({ message: "Password alterada com sucesso" });
 });
 
 app.get("/api/profile", autenticar, (req, res) => {

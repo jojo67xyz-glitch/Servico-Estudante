@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/authStore";
 import { useQuasar } from "quasar";
+import { pedirRecuperacao, redefinirPassword } from "@/services/authService";
 
 const $q = useQuasar();
 const router = useRouter();
@@ -11,6 +12,11 @@ const modoRegisto = ref(false);
 const nome = ref("");
 const email = ref("");
 const password = ref("");
+const recuperacaoAberta = ref(false);
+const emailRecuperacao = ref("");
+const codigoRecuperacao = ref("");
+const novaPassword = ref("");
+const codigoGerado = ref("");
 
 async function entrar() {
   try {
@@ -32,6 +38,27 @@ async function entrar() {
 
 function alternarModo() {
   modoRegisto.value = !modoRegisto.value;
+}
+
+async function pedirCodigo() {
+  try {
+    const token = await pedirRecuperacao(emailRecuperacao.value);
+    if (token) codigoGerado.value = token;
+    $q.notify({ type: "positive", message: "Código de recuperação gerado" });
+  } catch (erro) {
+    $q.notify({ type: "negative", message: erro instanceof Error ? erro.message : "Erro ao pedir recuperação" });
+  }
+}
+
+async function alterarPassword() {
+  try {
+    await redefinirPassword(codigoRecuperacao.value, novaPassword.value);
+    recuperacaoAberta.value = false;
+    codigoGerado.value = "";
+    $q.notify({ type: "positive", message: "Password alterada. Já pode entrar." });
+  } catch (erro) {
+    $q.notify({ type: "negative", message: erro instanceof Error ? erro.message : "Código inválido" });
+  }
 }
 </script>
 
@@ -92,8 +119,30 @@ function alternarModo() {
         <button type="button" class="mode-link" @click="alternarModo">
           {{ modoRegisto ? "Já tenho uma conta" : "Ainda não tenho conta" }}
         </button>
+        <button type="button" class="mode-link" @click="recuperacaoAberta = true">
+          Esqueci-me da password
+        </button>
       </div>
     </q-card>
+
+    <q-dialog v-model="recuperacaoAberta">
+      <q-card style="width: min(92vw, 460px)">
+        <q-card-section class="text-h6">Recuperar password</q-card-section>
+        <q-card-section class="q-gutter-md">
+          <q-input v-model="emailRecuperacao" outlined type="email" label="Email da conta" />
+          <q-btn outline color="primary" label="Gerar código" @click="pedirCodigo" />
+          <q-banner v-if="codigoGerado" class="bg-blue-1 text-blue-9">
+            Código para apresentação: <strong>{{ codigoGerado }}</strong>
+          </q-banner>
+          <q-input v-if="codigoGerado" v-model="codigoRecuperacao" outlined label="Código de recuperação" />
+          <q-input v-if="codigoGerado" v-model="novaPassword" outlined type="password" label="Nova password" />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancelar" v-close-popup />
+          <q-btn v-if="codigoGerado" color="primary" label="Alterar password" @click="alterarPassword" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 

@@ -34,3 +34,12 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS messages_match_idx ON messages(match_id, created_at);
+
+CREATE TABLE IF NOT EXISTS password_resets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
