@@ -9,6 +9,22 @@ interface RespostaAuth {
   user: { id: number; email: string; nome: string; bio?: string };
 }
 
+async function lerResposta<T>(resposta: Response): Promise<T & { error?: string }> {
+  const texto = await resposta.text();
+  if (!texto) {
+    throw new Error(
+      resposta.status === 502
+        ? "O backend está desligado. Execute npm run server."
+        : `O servidor respondeu sem dados (${resposta.status}).`
+    );
+  }
+  try {
+    return JSON.parse(texto) as T & { error?: string };
+  } catch {
+    throw new Error("O servidor devolveu uma resposta inválida.");
+  }
+}
+
 function converterUtilizador(user: RespostaAuth["user"]): User {
   return {
     id: String(user.id),
@@ -32,7 +48,7 @@ async function pedirAuth(endpoint: string, dados: Record<string, string>): Promi
   } catch {
     throw new Error("Não foi possível ligar ao servidor. Execute npm run server.");
   }
-  const payload = (await resposta.json()) as RespostaAuth & { error?: string };
+  const payload = await lerResposta<RespostaAuth>(resposta);
   if (!resposta.ok) throw new Error(payload.error || "Não foi possível autenticar");
   localStorage.setItem(CHAVE_TOKEN, payload.token);
   const user = converterUtilizador(payload.user);
@@ -76,7 +92,7 @@ export async function atualizarBiografia(bio: string): Promise<string> {
     },
     body: JSON.stringify({ bio })
   });
-  const payload = (await resposta.json()) as { bio?: string; error?: string };
+  const payload = await lerResposta<{ bio?: string }>(resposta);
   if (!resposta.ok) throw new Error(payload.error || "Não foi possível guardar a biografia");
   return payload.bio || "";
 }
