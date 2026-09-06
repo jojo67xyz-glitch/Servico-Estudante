@@ -1,4 +1,4 @@
-import type { User } from "@/models/User";
+import type { Habilidade, User } from "@/models/User";
 
 const CHAVE_SESSAO = "skillswap:sessao";
 const CHAVE_TOKEN = "skillswap:token";
@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 interface RespostaAuth {
   token: string;
-  user: { id: number; email: string; nome: string; bio?: string };
+  user: { id: number; email: string; nome: string; bio?: string; habilidades?: Habilidade[]; interesses?: Habilidade[] };
 }
 
 async function lerResposta<T>(resposta: Response): Promise<T & { error?: string }> {
@@ -31,8 +31,8 @@ function converterUtilizador(user: RespostaAuth["user"]): User {
     nome: user.nome,
     fotoPerfil: "https://cdn.quasar.dev/img/avatar.png",
     bio: user.bio || "",
-    habilidades: [],
-    interesses: [],
+    habilidades: user.habilidades || [],
+    interesses: user.interesses || [],
     avaliacao: 0
   };
 }
@@ -82,7 +82,11 @@ export function obterToken(): string | null {
   return localStorage.getItem(CHAVE_TOKEN);
 }
 
-export async function atualizarBiografia(bio: string): Promise<string> {
+export async function atualizarPerfil(dados: {
+  bio: string;
+  habilidades: Habilidade[];
+  interesses: Habilidade[];
+}): Promise<typeof dados> {
   const token = obterToken();
   const resposta = await fetch(`${API_URL}/profile`, {
     method: "PUT",
@@ -90,9 +94,9 @@ export async function atualizarBiografia(bio: string): Promise<string> {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify({ bio })
+    body: JSON.stringify(dados)
   });
-  const payload = await lerResposta<{ bio?: string }>(resposta);
-  if (!resposta.ok) throw new Error(payload.error || "Não foi possível guardar a biografia");
-  return payload.bio || "";
+  const payload = await lerResposta<typeof dados>(resposta);
+  if (!resposta.ok) throw new Error(payload.error || "Não foi possível guardar o perfil");
+  return payload;
 }

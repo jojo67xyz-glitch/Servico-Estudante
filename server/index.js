@@ -22,6 +22,24 @@ await mkdir(path.dirname(databasePath), { recursive: true });
 const database = new Database(databasePath);
 database.pragma("foreign_keys = ON");
 database.exec(await readFile(path.join(serverDirectory, "..", "database", "schema.sql"), "utf8"));
+for (const column of ["habilidades", "interesses"]) {
+  try {
+    database.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '[]'`);
+  } catch (error) {
+    if (!error.message.includes("duplicate column name")) throw error;
+  }
+}
+
+function perfilDoUtilizador(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    nome: user.nome,
+    bio: user.bio || "",
+    habilidades: JSON.parse(user.habilidades || "[]"),
+    interesses: JSON.parse(user.interesses || "[]")
+  };
+}
 
 const upload = multer({
   dest: uploadsDirectory,
@@ -70,7 +88,7 @@ app.post("/api/auth/register", async (req, res) => {
       "INSERT INTO users (email, password_hash, nome) VALUES (?, ?, ?)"
     ).run(email, passwordHash, nome);
     const userId = result.lastInsertRowid;
-    res.status(201).json({ token: criarToken(userId), user: { id: userId, email, nome, bio: "" } });
+    res.status(201).json({ token: criarToken(userId), user: { id: userId, email, nome, bio: "", habilidades: [], interesses: [] } });
   } catch (error) {
     const status = error.code === "SQLITE_CONSTRAINT_UNIQUE" ? 409 : 500;
     res.status(status).json({ error: status === 409 ? "Este email já está registado" : "Erro ao criar conta" });
@@ -83,12 +101,12 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const user = database.prepare(
-      "SELECT id, email, password_hash, nome, bio FROM users WHERE email = ?"
+      "SELECT id, email, password_hash, nome, bio, habilidades, interesses FROM users WHERE email = ?"
     ).get(email);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
-    res.json({ token: criarToken(user.id), user: { id: user.id, email: user.email, nome: user.nome, bio: user.bio || "" } });
+    res.json({ token: criarToken(user.id), user: { ...perfilDoUtilizador(user), token: undefined } });
   } catch {
     res.status(500).json({ error: "Erro ao iniciar sessão" });
   }
@@ -96,17 +114,22 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/profile", autenticar, (req, res) => {
   const user = database.prepare(
-    "SELECT id, email, nome, bio, foto_url FROM users WHERE id = ?"
+    "SELECT id, email, nome, bio, foto_url, habilidades, interesses FROM users WHERE id = ?"
   ).get(req.userId);
   if (!user) return res.status(404).json({ error: "Utilizador não encontrado" });
-  res.json(user);
+  res.json(perfilDoUtilizador(user));
 });
 
 app.put("/api/profile", autenticar, (req, res) => {
   const bio = typeof req.body.bio === "string" ? req.body.bio.trim().slice(0, 500) : null;
-  if (bio === null) return res.status(400).json({ error: "A biografia é inválida" });
-  database.prepare("UPDATE users SET bio = ? WHERE id = ?").run(bio, req.userId);
-  res.json({ bio });
+  const habilidades = Array.isArray(req.body.habilidades) ? req.body.habilidades : null;
+  const interesses = Array.isArray(req.body.interesses) ? req.body.interesses : null;
+  if (bio === null || habilidades === null || interesses === null) {
+    return res.status(400).json({ error: "Dados do perfil inválidos" });
+  }
+  database.prepare("UPDATE users SET bio = ?, habilidades = ?, interesses = ? WHERE id = ?")
+    .run(bio, JSON.stringify(habilidades), JSON.stringify(interesses), req.userId);
+  res.json({ bio, habilidades, interesses });
 });
 
 app.get("/api/messages/:matchId", autenticar, (req, res) => {

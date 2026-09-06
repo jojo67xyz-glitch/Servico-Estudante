@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
   nome VARCHAR(120) NOT NULL,
   bio TEXT,
   foto_url VARCHAR(500),
+  habilidades TEXT NOT NULL DEFAULT '[]',
+  interesses TEXT NOT NULL DEFAULT '[]',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

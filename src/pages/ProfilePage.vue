@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { useQuasar } from "quasar";
 import { useRouter } from "vue-router";
+import type { Habilidade } from "@/models/User";
 import { useAuthStore } from "@/stores/authStore";
 
 const authStore = useAuthStore();
@@ -9,15 +10,39 @@ const router = useRouter();
 const $q = useQuasar();
 const dialogAberto = ref(false);
 const biografia = ref("");
+const habilidadesTexto = ref("");
+const interessesTexto = ref("");
 
 function abrirEditorBiografia() {
   biografia.value = authStore.usuario?.bio || "";
   dialogAberto.value = true;
 }
 
+function abrirEditorCompetencias() {
+  habilidadesTexto.value = authStore.usuario?.habilidades.map(item => `${item.nome} (${item.nivel})`).join(", ") || "";
+  interessesTexto.value = authStore.usuario?.interesses.map(item => `${item.nome} (${item.nivel})`).join(", ") || "";
+  dialogCompetencias.value = true;
+}
+
+const dialogCompetencias = ref(false);
+
+function converterLista(valor: string): Habilidade[] {
+  return valor.split(",").map(nome => nome.trim()).filter(Boolean).map(nome => ({ nome, nivel: "Intermediário" }));
+}
+
+async function guardarCompetencias() {
+  try {
+    await authStore.guardarPerfil(authStore.usuario?.bio || "", converterLista(habilidadesTexto.value), converterLista(interessesTexto.value));
+    dialogCompetencias.value = false;
+    $q.notify({ type: "positive", message: "Habilidades e interesses guardados" });
+  } catch (erro) {
+    $q.notify({ type: "negative", message: erro instanceof Error ? erro.message : "Erro ao guardar" });
+  }
+}
+
 async function guardarBiografia() {
   try {
-    await authStore.guardarBiografia(biografia.value);
+    await authStore.guardarPerfil(biografia.value, authStore.usuario?.habilidades || [], authStore.usuario?.interesses || []);
     dialogAberto.value = false;
     $q.notify({ type: "positive", message: "Biografia guardada" });
   } catch (erro) {
@@ -73,6 +98,15 @@ function sair() {
     </q-list>
 
     <q-btn
+      outline
+      color="primary"
+      icon="tune"
+      label="Editar habilidades e interesses"
+      class="full-width q-mt-md"
+      @click="abrirEditorCompetencias"
+    />
+
+    <q-btn
       color="negative"
       label="Sair"
       class="full-width q-mt-lg"
@@ -96,6 +130,20 @@ function sair() {
         <q-card-actions align="right">
           <q-btn flat label="Cancelar" v-close-popup />
           <q-btn color="primary" label="Guardar" :loading="authStore.carregando" @click="guardarBiografia" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="dialogCompetencias">
+      <q-card style="width: min(92vw, 460px)">
+        <q-card-section class="text-h6">Habilidades e interesses</q-card-section>
+        <q-card-section class="q-gutter-md">
+          <q-input v-model="habilidadesTexto" outlined label="Habilidades" hint="Separe cada item por vírgula" />
+          <q-input v-model="interessesTexto" outlined label="Interesses" hint="Separe cada item por vírgula" />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancelar" v-close-popup />
+          <q-btn color="primary" label="Guardar" :loading="authStore.carregando" @click="guardarCompetencias" />
         </q-card-actions>
       </q-card>
     </q-dialog>
